@@ -4,8 +4,8 @@ import matplotlib.pyplot as plt
 import graphfunctions as fun
 
 
-order = 500
-threshold_degree = 30
+order = 100
+threshold_degree = 15
 p = 0.8
 q = 0.001
 
