@@ -11,100 +11,64 @@ def draw_graph(G): #with networkx
     nx.draw(G, with_labels=False, node_color="lightblue", edge_color="gray", node_size=4)
     plt.show()
 
-def random_graph_edge_threshold(order = 500, threshold_angle = 30): #threshold angle in degrees
-    n_points = order  # Number of points
-    threshold_angle_rad = np.deg2rad(threshold_angle)  # Convert to radians
-    # Step 1: Generate random angles on the unit circle
-    angles = np.random.uniform(0, 2 * np.pi, n_points)
-    # Step 2: Create the graph
-    G = nx.Graph()
-    # Add nodes with angles as attributes
-    for i, angle in enumerate(angles):
-        G.add_node(i, angle=angle)
-    # Step 3: Connect points if their angular distance is within the threshold
-    for i in range(n_points):
-        for j in range(i + 1, n_points):
-            angle_diff = np.abs(angles[i] - angles[j])
-            # Adjust for circular distance
-            angle_diff = min(angle_diff, 2 * np.pi - angle_diff)
-            if angle_diff <= threshold_angle_rad:
-                G.add_edge(i, j)
-    return G, angles
-
-def plot_random_graph(G, angles, order = 500, threshold = 30):
-    positions = {i: (np.cos(angle), np.sin(angle)) for i, angle in enumerate(angles)}
-    plt.figure(figsize=(8, 8))
-    nx.draw(G, pos=positions, with_labels=False, node_size=1, node_color="red", edge_color="none")
-    plt.title(f"Random Graph on Unit Circle ({order} nodes, {threshold}° threshold)")
-    plt.show()
-
 def get_eigenvectors(nx_graph):
+    """
+    Returns 2nd and 3rd Laplacian eigenvectors of a networkx graph
+    """
     A = nx.laplacian_matrix(nx_graph).astype(float)
     eigenvalues, eigenvectors = eigsh(A, k=3, which='SM')
     second_eigenvector = eigenvectors[:, 1]  # Eigenvector corresponding to 2nd eigenvalue
     third_eigenvector = eigenvectors[:, 2]  # Eigenvector corresponding to 3rd eigenvalue
     return second_eigenvector, third_eigenvector
 
-def eigenvector_coordinates_scaled(eigenvector_tuple):
-    second_eigenvector, third_eigenvector = eigenvector_tuple
-    x = second_eigenvector[0]
-    y = third_eigenvector[0]
-    distance = np.sqrt(x ** 2 + y ** 2)
-    scale_factor = 1 / distance
-    scaled_x = []
-    scaled_y = []
-    for i in range(len(second_eigenvector)):
-        x = second_eigenvector[i]
-        y = third_eigenvector[i]
-        scaled_x.append(x * scale_factor)
-        scaled_y.append(y * scale_factor)
-    return scaled_x, scaled_y
-
-def eigenvector_coordinates(eigenvector_tuple):
+def eigenvector_radial_angles(eigenvector_tuple):
+    """
+    Args:
+        eigenvector_tuple: 2 vectors, one for each eigenvector.
+    Returns: A list of the angles of each point of the 2d-embedding in polar coordinates
+    in the order the vertices were created.
+    """
     second, third = eigenvector_tuple
-    array_x = []
-    array_y = []
-    for x, y in zip(second, third):
-        array_x.append(x)
-        array_y.append(y)
-    return array_x, array_y
-
-def eigenvector_radial_coordinates(eigenvector_tuple):
-    second, third = eigenvector_tuple
+    n = len(second)
     radial_angles = []
-    radial_distances = []
-    for x, y in zip(second, third):
-        r = np.sqrt(x ** 2 + y ** 2)  # Compute radial distance
+    for i in range(n):
+        x = second[i]
+        y = third[i]
         theta = np.arctan2(y, x)  # Compute angle in radians
+        if theta < 0:  # Convert to [0, 2pi] range
+            theta += 2 * np.pi
         radial_angles.append(theta)
-        radial_distances.append(r)
-    return radial_distances, radial_angles
+    return radial_angles
 
 def count_wrong_positions(radial_angles):
+    """
+    radial_angles: A list of all angular coordinates of the points in a graph's 2d-embedding.
+    Returns: how many pairs of vertices have been inverted.
+    The code might be faulty
+    """
     count = 0
     n = len(radial_angles)
     for i in range(n):
         for j in range(i+1, n):
-            if radial_angles[i] < radial_angles[j]:
+            if radial_angles[i] > radial_angles[j]:
                 count += 1
     return count
 
-def kendall_distance(radial_angles):
-    sorted_indices = np.argsort(radial_angles)  # Indices of the angles in sorted order
-    inverse_permutation = np.argsort(sorted_indices)  # Original -> New position
-
-    # Step 2: Count inversions using a double loop
-    inversions = 0
-    n = len(inverse_permutation)
-    for i in range(n):
-        for j in range(i + 1, n):
-            if inverse_permutation[i] > inverse_permutation[j]:
-                inversions += 1
-
-    return inversions
+def error(nx_graph):
+    """
+    Returns: how many inversions the 2d embedding of a networkx graph has.
+    The code might be faulty
+    """
+    second, third = get_eigenvectors(nx_graph)
+    rads = eigenvector_radial_angles((second, third))
+    err = count_wrong_positions(rads)
+    return err
 
 
 def plot_unscaled_coordinates(coordinates):
+    """
+    Plots 2 vectors (with x and y coordinates, respectively) in the 2d-plane.
+    """
     x, y = coordinates
     plt.scatter(x, y, s = 1, color='red', label='Points')
 
@@ -116,51 +80,46 @@ def plot_unscaled_coordinates(coordinates):
     # Show grid and the plot
     plt.grid(True)
     plt.axis('equal')
-    plt.show()
-
-def plot_scaled_coordinates(coordinates):
-    scaled_x, scaled_y = coordinates
-    theta = np.linspace(0, 2 * np.pi, 100)  # 100 points on the unit circle
-    x_circle = np.cos(theta)
-    y_circle = np.sin(theta)
-    plt.figure(figsize=(6, 6))
-    plt.plot(x_circle, y_circle, label='Unit Circle', color='black', linestyle='--')
-
-    # Plot the points corresponding to the second and third eigenvectors
-    plt.scatter(scaled_x, scaled_y, color="blue")
-
-    # Add labels and legend
-    plt.xlabel('x')
-    plt.ylabel('y')
-    plt.axhline(0, color='black', linewidth=0.5)
-    plt.axvline(0, color='black', linewidth=0.5)
-    plt.gca().set_aspect('equal', adjustable='box')  # Equal scaling for x and y axes
-    plt.title("2nd and 3rd Eigenvectors on the Unit Circle")
-    plt.legend()
-
-    # Show the plot
+    plt.scatter(0, 0, color="black", label="(0, 0)", zorder=1)
     plt.show()
 
 def plot_unscaled_eigenvectors(nx_graph):
+    """
+    Directly plots the 2d-embedding og a networkx graph.
+    """
     vectors = get_eigenvectors(nx_graph)
     plot_unscaled_coordinates(vectors)
 
 def angles_to_dictionary(angles, order):
+    """
+    Takes two arguments: a list of angles (angular coordinates of vertices) and the order of the graph.
+    Returns: A dictionary where every angle is assigned a position (ordering).
+    """
     unsorted = [abs(x) for x in angles]
     vertex_angles = sorted(unsorted)
     keys = [i for i in range(order)]
     dictionary = dict(zip(keys, vertex_angles))
     return dictionary
 
-def uniform_angles(order):
-    unsorted = np.random.uniform(0, 2 * np.pi, order)
-    return angles_to_dictionary(unsorted, order)
+def uniform_angles(n):
+    """
+    Generates n vertices uniformly around the unit circle
+    """
+    unsorted = np.random.uniform(0, 2 * np.pi, n)
+    return angles_to_dictionary(unsorted, n)
 
-def non_uniform_angles(order):
-    raw = np.random.uniform(-np.pi/2, 2*np.pi, order)
-    return angles_to_dictionary(raw, order)
+def non_uniform_angles(n):
+    """
+    Generates n vertices non-uniformly around the unit circle.
+    There are approximately twice as many vertices in the first quadrant than in the other quadrants.
+    """
+    raw = np.random.uniform(-np.pi/2, 2*np.pi, n)
+    return angles_to_dictionary(raw, n)
 
 def vertex_histogram(dictionary):
+    """
+    Plots a histogram visualising how many vertices are in each quadrant of the circular graph.
+    """
     quadrant_counts = [0, 0, 0, 0]  # Counts for each quadrant
     #counting quadrant elements
     for angle in dictionary.values():
@@ -180,6 +139,14 @@ def vertex_histogram(dictionary):
     plt.show()
 
 def random_graph_unit_circle(order, threshold, p, q):
+    """
+    Args:
+        order of graph
+        threshold angle
+        p: probability that two vertices within the threshold distance are connected
+        q: probability that two vertices not within the threshold distance are connected
+    Returns: a networkx graph
+    """
     # generate angles uniformly for the vertices
     angle_dict = non_uniform_angles(order)
 
@@ -204,6 +171,9 @@ def random_graph_unit_circle(order, threshold, p, q):
     return G
 
 def plot_graph_unit_circle(nx_graph, title="Random Graph on Unit Circle"):
+    """
+    Plots graph with vertices on the unit circle.
+    """
 
     # Map vertices to 2D coordinates on the unit circle
     positions = {i: (np.cos(angle), np.sin(angle)) for i, angle in nx_graph.graph['dictionary'].items()}
@@ -223,7 +193,10 @@ def plot_graph_unit_circle(nx_graph, title="Random Graph on Unit Circle"):
     plt.show()
 
 def plot_degree_distribution(nx_graph):
-    # this was copied from one of the applied graph theory workbooks
+    """
+    This was copied from one of the Applied Graph Theory workbooks.
+    """
+    average_degree = sum(degree for node, degree in nx_graph.degree()) / nx_graph.number_of_nodes()
     degree_sequence = sorted((degree for node, degree in nx_graph.degree()), reverse=True)
     min_degree = min(degree_sequence)
     max_degree = max(degree_sequence)
@@ -244,6 +217,8 @@ def plot_degree_distribution(nx_graph):
     ax.set_title("Degree Distribution", fontsize=14)  # Add a title to the plot
     plt.tight_layout()  # Adjust layout to avoid overlap
     plt.show()
+
+    return average_degree
 
 
 
