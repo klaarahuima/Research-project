@@ -7,7 +7,9 @@ import circulants as cry
 import removingedges as rem
 import matplotlib.pyplot as plt
 import numpy as np
-
+"""
+Created this file to generate plot specifically for my presentation.
+"""
 
 n = 1000
 d = 20 #per side

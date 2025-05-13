@@ -1,6 +1,9 @@
 import graphfunctions as fun
 import networkx as nx
 
+"""
+Observing the interlacing theorem in practice.
+"""
 G = nx.Graph()
 
 n = 10
