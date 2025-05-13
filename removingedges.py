@@ -6,7 +6,35 @@ from scipy.sparse import csr_matrix
 from scipy.sparse import coo_matrix
 from scipy.sparse import diags
 import graphfunctions as fun
+import numpy as np
 import random
+
+"""
+Functions defined to generate graphs in which we remove edges from perfect circulant graphs (like in the Richter Rocha paper).
+Will comment further soon.
+
+"""
+d = 20
+n = 1000
+p = 0.6
+
+def simulate(n, d, p):
+    G = nx.circulant_graph(n, [i for i in range(d)])
+    print(G)
+    H = G.copy()
+    for u,v in G.edges:
+        if np.random.uniform(0, 1) < 1 - p:
+            H.remove_edge(u,v)
+    print(H)
+    return H
+
+
+
+
+
+
+
+"""
 
 order = 500
 offset = 120
@@ -57,3 +85,4 @@ print("new size", newG.size())
 #fun.draw_graph(G)
 fun.draw_graph(newG)
 fun.plot_unscaled_eigenvectors(newG)
+"""
